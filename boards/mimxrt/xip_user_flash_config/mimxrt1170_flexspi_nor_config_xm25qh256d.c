@@ -71,7 +71,7 @@ const flexspi_nor_config_t qspiflash_config = {
                     .seqId    = 12,
                     .reserved = 0,
                 },
-                .configCmdArgs[0] = (FLASH_DUMMY_VALUE << 3) | 0x20,
+            .configCmdArgs[0] = (FLASH_DUMMY_VALUE << 3) | 0x20,
 #endif
             // Write 0x02 into Status Register-2 to enable QE mode
             .configModeType[1] = kDeviceConfigCmdType_Generic,
