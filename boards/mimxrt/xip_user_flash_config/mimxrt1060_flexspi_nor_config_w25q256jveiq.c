@@ -33,12 +33,12 @@ const flexspi_nor_config_t qspiflash_config = {
             .controllerMiscOption = (1u << kFlexSpiMiscOffset_SafeConfigFreqEnable),
             .deviceType           = kFlexSpiDeviceType_SerialNOR,
             .sflashPadType        = kSerialFlash_4Pads,
-            .serialClkFreq        = kFlexSpiSerialClk_120MHz,
-            .sflashA1Size         = 16u * 1024u * 1024u,
+            .serialClkFreq        = kFlexSpiSerialClk_133MHz,
+            .sflashA1Size         = 32u * 1024u * 1024u,
             .lookupTable =
                 {
                     // Read LUTs
-                    [0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0xEB, RADDR_SDR, FLEXSPI_4PAD, 0x18),
+                    [0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0xEC, RADDR_SDR, FLEXSPI_4PAD, 0x20),
                     [1] = FLEXSPI_LUT_SEQ(DUMMY_SDR, FLEXSPI_4PAD, 0x06, READ_SDR, FLEXSPI_4PAD, 0x04),
 
                     // Read Status LUTs
