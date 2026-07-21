@@ -22,43 +22,90 @@ __attribute__((section(".boot_hdr.conf"), used))
 #pragma location = ".boot_hdr.conf"
 #endif
 
+#define S25FL256S_XIP_MODE_1BIT_30MHz_SDR  (0)
+#define S25FL256S_XIP_MODE_4BIT_80MHz_SDR  (0)
+#define S25FL256S_XIP_MODE_4BIT_100MHz_SDR (1)
+
+#if S25FL256S_XIP_MODE_4BIT_80MHz_SDR
+#define FLASH_DUMMY_CYCLES 0x06
+#define FLASH_DUMMY_QE_VALUE  0x0200
+#elif S25FL256S_XIP_MODE_4BIT_100MHz_SDR
+#define FLASH_DUMMY_CYCLES 0x07
+#define FLASH_DUMMY_QE_VALUE  0x8200
+#endif
+
 const flexspi_nor_config_t qspiflash_config = {
     .memConfig =
         {
-            .tag                  = FLEXSPI_CFG_BLK_TAG,
-            .version              = FLEXSPI_CFG_BLK_VERSION,
-            .readSampleClkSrc     = kFlexSPIReadSampleClk_LoopbackFromDqsPad,
-            .csHoldTime           = 3u,
-            .csSetupTime          = 3u,
-            .controllerMiscOption = (1u << kFlexSpiMiscOffset_SafeConfigFreqEnable),
+            .tag              = FLEXSPI_CFG_BLK_TAG,
+            .version          = FLEXSPI_CFG_BLK_VERSION,
+#if S25FL256S_XIP_MODE_1BIT_30MHz_SDR
+            .readSampleClkSrc = kFlexSPIReadSampleClk_LoopbackInternally,
+#elif S25FL256S_XIP_MODE_4BIT_80MHz_SDR | S25FL256S_XIP_MODE_4BIT_100MHz_SDR
+            .readSampleClkSrc = kFlexSPIReadSampleClk_LoopbackFromDqsPad,
+#endif
+            .csHoldTime       = 3u,
+            .csSetupTime      = 3u,
+            // Enable DDR mode, Wordaddassable, Safe configuration, Differential clock
+            .controllerMiscOption = 0x10,
             .deviceType           = kFlexSpiDeviceType_SerialNOR,
+#if S25FL256S_XIP_MODE_1BIT_30MHz_SDR
+            .sflashPadType        = kSerialFlash_1Pad,
+            .serialClkFreq        = kFlexSpiSerialClk_30MHz,
+#elif S25FL256S_XIP_MODE_4BIT_80MHz_SDR
             .sflashPadType        = kSerialFlash_4Pads,
-            .serialClkFreq        = kFlexSpiSerialClk_133MHz,
-            .sflashA1Size         = 32u * 1024u * 1024u,
+            .serialClkFreq        = kFlexSpiSerialClk_80MHz,
+#elif S25FL256S_XIP_MODE_4BIT_100MHz_SDR
+            .sflashPadType        = kSerialFlash_4Pads,
+            .serialClkFreq        = kFlexSpiSerialClk_100MHz,
+#endif
+            .sflashA1Size         = 256u * 1024u * 1024u,
+            /* Enable flash configuration feature */
+            .configCmdEnable   = 1u,
+#if S25FL256S_XIP_MODE_4BIT_80MHz_SDR | S25FL256S_XIP_MODE_4BIT_100MHz_SDR
+            // Write Status Register-1, Configuration Register-1 to set dummy cycles and QE
+            .configModeType[0] = kDeviceConfigCmdType_Generic,
+            .configCmdSeqs[0] =
+                {
+                    .seqNum   = 1,
+                    .seqId    = 12,
+                    .reserved = 0,
+                },
+            .configCmdArgs[0] = FLASH_DUMMY_QE_VALUE,
+#endif
             .lookupTable =
                 {
+#if S25FL256S_XIP_MODE_1BIT_30MHz_SDR
+                    // Read LUTs
+                    [0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x13, RADDR_SDR, FLEXSPI_1PAD, 0x20),
+                    [1] = FLEXSPI_LUT_SEQ(READ_SDR, FLEXSPI_1PAD, 0x04, STOP, FLEXSPI_1PAD, 0x0),
+#elif S25FL256S_XIP_MODE_4BIT_80MHz_SDR | S25FL256S_XIP_MODE_4BIT_100MHz_SDR
                     // Read LUTs
                     [0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0xEC, RADDR_SDR, FLEXSPI_4PAD, 0x20),
-                    [1] = FLEXSPI_LUT_SEQ(DUMMY_SDR, FLEXSPI_4PAD, 0x06, READ_SDR, FLEXSPI_4PAD, 0x04),
-
-                    // Read Status LUTs
+                    [1] = FLEXSPI_LUT_SEQ(DUMMY_SDR, FLEXSPI_4PAD, FLASH_DUMMY_CYCLES, READ_SDR, FLEXSPI_4PAD, 0x04),
+#endif
+                    // Read Status register-1 LUTs
                     [4 * 1 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x05, READ_SDR, FLEXSPI_1PAD, 0x04),
 
                     // Write Enable LUTs
                     [4 * 3 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x06, STOP, FLEXSPI_1PAD, 0x0),
 
                     // Erase Sector LUTs
-                    [4 * 5 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x20, RADDR_SDR, FLEXSPI_1PAD, 0x18),
+                    [4 * 5 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x21, RADDR_SDR, FLEXSPI_1PAD, 0x20),
 
-                    // Erase Block LUTs
-                    [4 * 8 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0xD8, RADDR_SDR, FLEXSPI_1PAD, 0x18),
+                    // 64KB Erase Block LUTs
+                    [4 * 8 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0xDC, RADDR_SDR, FLEXSPI_1PAD, 0x20),
 
                     // Pape Program LUTs
-                    [4 * 9 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x02, RADDR_SDR, FLEXSPI_1PAD, 0x18),
+                    [4 * 9 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x12, RADDR_SDR, FLEXSPI_1PAD, 0x20),
                     [4 * 9 + 1] = FLEXSPI_LUT_SEQ(WRITE_SDR, FLEXSPI_1PAD, 0x04, STOP, FLEXSPI_1PAD, 0x0),
 
                     // Erase Chip LUTs
                     [4 * 11 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x60, STOP, FLEXSPI_1PAD, 0x0),
+
+                    // WRR LUTs
+                    [4 * 12 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x01, WRITE_SDR, FLEXSPI_1PAD, 0x02),
+                    [4 * 12 + 1] = FLEXSPI_LUT_SEQ(STOP, FLEXSPI_1PAD, 0x00, 0, 0, 0),
                 },
         },
     .pageSize           = 256u,
