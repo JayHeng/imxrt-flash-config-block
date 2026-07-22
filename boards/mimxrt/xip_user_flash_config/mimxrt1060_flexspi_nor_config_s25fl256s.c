@@ -24,7 +24,8 @@ __attribute__((section(".boot_hdr.conf"), used))
 
 #define S25FL256S_XIP_MODE_1BIT_30MHz_SDR  (0)
 #define S25FL256S_XIP_MODE_4BIT_80MHz_SDR  (0)
-#define S25FL256S_XIP_MODE_4BIT_100MHz_SDR (1)
+#define S25FL256S_XIP_MODE_4BIT_100MHz_SDR (0)
+#define S25FL256S_XIP_MODE_4BIT_60MHz_DDR  (1)
 
 #if S25FL256S_XIP_MODE_4BIT_80MHz_SDR
 #define FLASH_DUMMY_CYCLES 0x06
@@ -32,6 +33,9 @@ __attribute__((section(".boot_hdr.conf"), used))
 #elif S25FL256S_XIP_MODE_4BIT_100MHz_SDR
 #define FLASH_DUMMY_CYCLES 0x07
 #define FLASH_DUMMY_QE_VALUE  0x8200
+#elif S25FL256S_XIP_MODE_4BIT_60MHz_DDR
+#define FLASH_DUMMY_CYCLES 0x0E
+#define FLASH_DUMMY_QE_VALUE  0x0200
 #endif
 
 const flexspi_nor_config_t qspiflash_config = {
@@ -41,28 +45,37 @@ const flexspi_nor_config_t qspiflash_config = {
             .version          = FLEXSPI_CFG_BLK_VERSION,
 #if S25FL256S_XIP_MODE_1BIT_30MHz_SDR
             .readSampleClkSrc = kFlexSPIReadSampleClk_LoopbackInternally,
-#elif S25FL256S_XIP_MODE_4BIT_80MHz_SDR | S25FL256S_XIP_MODE_4BIT_100MHz_SDR
+#elif S25FL256S_XIP_MODE_4BIT_80MHz_SDR | S25FL256S_XIP_MODE_4BIT_100MHz_SDR | S25FL256S_XIP_MODE_4BIT_60MHz_DDR
             .readSampleClkSrc = kFlexSPIReadSampleClk_LoopbackFromDqsPad,
 #endif
             .csHoldTime       = 3u,
             .csSetupTime      = 3u,
-            // Enable DDR mode, Wordaddassable, Safe configuration, Differential clock
-            .controllerMiscOption = 0x10,
             .deviceType           = kFlexSpiDeviceType_SerialNOR,
 #if S25FL256S_XIP_MODE_1BIT_30MHz_SDR
+            // Safe configuration
+            .controllerMiscOption = (1u << kFlexSpiMiscOffset_SafeConfigFreqEnable),
             .sflashPadType        = kSerialFlash_1Pad,
             .serialClkFreq        = kFlexSpiSerialClk_30MHz,
 #elif S25FL256S_XIP_MODE_4BIT_80MHz_SDR
+            // Safe configuration
+            .controllerMiscOption = (1u << kFlexSpiMiscOffset_SafeConfigFreqEnable),
             .sflashPadType        = kSerialFlash_4Pads,
             .serialClkFreq        = kFlexSpiSerialClk_80MHz,
 #elif S25FL256S_XIP_MODE_4BIT_100MHz_SDR
+            // Safe configuration
+            .controllerMiscOption = (1u << kFlexSpiMiscOffset_SafeConfigFreqEnable),
             .sflashPadType        = kSerialFlash_4Pads,
             .serialClkFreq        = kFlexSpiSerialClk_100MHz,
+#elif S25FL256S_XIP_MODE_4BIT_60MHz_DDR
+            // Enable DDR mode, Safe configuration
+            .controllerMiscOption = (1u << kFlexSpiMiscOffset_DdrModeEnable) | (1u << kFlexSpiMiscOffset_SafeConfigFreqEnable),
+            .sflashPadType        = kSerialFlash_4Pads,
+            .serialClkFreq        = kFlexSpiSerialClk_60MHz,
 #endif
             .sflashA1Size         = 256u * 1024u * 1024u,
             /* Enable flash configuration feature */
             .configCmdEnable   = 1u,
-#if S25FL256S_XIP_MODE_4BIT_80MHz_SDR | S25FL256S_XIP_MODE_4BIT_100MHz_SDR
+#if S25FL256S_XIP_MODE_4BIT_80MHz_SDR | S25FL256S_XIP_MODE_4BIT_100MHz_SDR | S25FL256S_XIP_MODE_4BIT_60MHz_DDR
             // Write Status Register-1, Configuration Register-1 to set dummy cycles and QE
             .configModeType[0] = kDeviceConfigCmdType_Generic,
             .configCmdSeqs[0] =
@@ -83,6 +96,10 @@ const flexspi_nor_config_t qspiflash_config = {
                     // Read LUTs
                     [0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0xEC, RADDR_SDR, FLEXSPI_4PAD, 0x20),
                     [1] = FLEXSPI_LUT_SEQ(DUMMY_SDR, FLEXSPI_4PAD, FLASH_DUMMY_CYCLES, READ_SDR, FLEXSPI_4PAD, 0x04),
+#elif S25FL256S_XIP_MODE_4BIT_60MHz_DDR
+                    // Read LUTs
+                    [0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0xEE, RADDR_DDR, FLEXSPI_4PAD, 0x20),
+                    [1] = FLEXSPI_LUT_SEQ(DUMMY_DDR, FLEXSPI_4PAD, FLASH_DUMMY_CYCLES, READ_DDR, FLEXSPI_4PAD, 0x04),
 #endif
                     // Read Status register-1 LUTs
                     [4 * 1 + 0] = FLEXSPI_LUT_SEQ(CMD_SDR, FLEXSPI_1PAD, 0x05, READ_SDR, FLEXSPI_1PAD, 0x04),
