@@ -72,7 +72,7 @@ const flexspi_nor_config_t qspiflash_config = {
             .sflashPadType        = kSerialFlash_4Pads,
             .serialClkFreq        = kFlexSpiSerialClk_60MHz,
 #endif
-            .sflashA1Size         = 256u * 1024u * 1024u,
+            .sflashA1Size         = 32u * 1024u * 1024u,
             /* Enable flash configuration feature */
             .configCmdEnable   = 1u,
 #if S25FL256S_XIP_MODE_4BIT_80MHz_SDR | S25FL256S_XIP_MODE_4BIT_100MHz_SDR | S25FL256S_XIP_MODE_4BIT_60MHz_DDR
